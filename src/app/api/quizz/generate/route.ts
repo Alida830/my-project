@@ -19,59 +19,88 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 🕒 SIMULATE GENERATION DELAY (2 seconds)
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Convert PDF file to buffer and extract text
+    const buffer = Buffer.from(await document.arrayBuffer());
+    let extractedText = "";
+    try {
+      const pdfParse = (await import("pdf-parse")).default;
+      const pdfData = await pdfParse(buffer);
+      extractedText = pdfData.text;
+    } catch (e: any) {
+      console.error("Error parsing PDF:", e);
+      return NextResponse.json({ error: "Failed to parse PDF" }, { status: 400 });
+    }
 
-    // ✅ MOCK QUIZ (NO AI)
-    const mockQuiz = {
-      name: document.name.replace(".pdf", "") + " Quiz",
-      description: `A comprehensive quiz generated from ${document.name}`,
-      userId,
-      questions: [
-        {
-          questionText: "Which of the following describes the main objective of this document?",
-          answers: [
-            { answerText: "To provide a theoretical overview", isCorrect: true },
-            { answerText: "To list technical specifications", isCorrect: false },
-            { answerText: "To outline a marketing strategy", isCorrect: false },
-          ],
-        },
-        {
-          questionText: "What is the primary benefit mentioned in the introductory section?",
-          answers: [
-            { answerText: "Increased efficiency and speed", isCorrect: true },
-            { answerText: "Reduced cost of production", isCorrect: false },
-            { answerText: "Improved user satisfaction", isCorrect: false },
-          ],
-        },
-        {
-          questionText: "According to the document, what is the recommended first step?",
-          answers: [
-            { answerText: "Initialize the environment", isCorrect: true },
-            { answerText: "Contact customer support", isCorrect: false },
-            { answerText: "Review the safety protocols", isCorrect: false },
-          ],
-        },
-        {
-          questionText: "Which component is identified as the core of the system?",
-          answers: [
-            { answerText: "The Logic Engine", isCorrect: true },
-            { answerText: "The Storage Unit", isCorrect: false },
-            { answerText: "The User Interface", isCorrect: false },
-          ],
-        },
-        {
-          questionText: "What is the expected outcome of following the provided guidelines?",
-          answers: [
-            { answerText: "A fully functional prototype", isCorrect: true },
-            { answerText: "A detailed project report", isCorrect: false },
-            { answerText: "A certificate of completion", isCorrect: false },
-          ],
-        },
-      ],
-    };
+    const promptText = `
+You are a Quiz generator. Given the following document text, generate a comprehensive quiz.
+Generate a maximum of 5 questions.
+The quiz MUST strictly follow this JSON format without any markdown wrappers (start exactly with { and end with }):
+{
+  "name": "Quiz Name",
+  "description": "Quiz Description",
+  "questions": [
+    {
+      "questionText": "Question 1",
+      "answers": [
+        { "answerText": "Answer 1", "isCorrect": true },
+        { "answerText": "Answer 2", "isCorrect": false },
+        { "answerText": "Answer 3", "isCorrect": false }
+      ]
+    }
+  ]
+}
 
-    const { quizzId } = await saveQuizz(mockQuiz);
+Document Text:
+${extractedText.substring(0, 10000)}
+`;
+
+    const response = await fetch(
+      "https://router.huggingface.co/v1/chat/completions",
+      {
+        headers: {
+          Authorization: \`Bearer \${process.env.HF_TOKEN}\`,
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+        body: JSON.stringify({
+          messages: [
+            {
+              role: "user",
+              content: promptText,
+            },
+          ],
+          model: "Qwen/Qwen3-4B-Instruct-2507:nscale",
+        }),
+      }
+    );
+
+    const result = await response.json();
+    
+    if (!response.ok) {
+       console.error("HF API Error:", result);
+       throw new Error(\`HF API Error: \${JSON.stringify(result)}\`);
+    }
+
+    let parsedQuiz;
+    try {
+        let content = result.choices?.[0]?.message?.content?.trim() || "";
+        
+        // Remove markdown wrappers if any
+        if (content.startsWith("\`\`\`json")) {
+           content = content.replace(/^\`\`\`json/, "").replace(/\`\`\`$/, "").trim();
+        } else if (content.startsWith("\`\`\`")) {
+           content = content.replace(/^\`\`\`/, "").replace(/\`\`\`$/, "").trim();
+        }
+        
+        parsedQuiz = JSON.parse(content);
+    } catch (e) {
+        console.error("Error parsing JSON from HF model:", e);
+        console.error("Raw content:", result.choices?.[0]?.message?.content);
+        return NextResponse.json({ error: "Failed to generate valid quiz format. Try again." }, { status: 500 });
+    }
+
+    parsedQuiz.userId = userId;
+    const { quizzId } = await saveQuizz(parsedQuiz);
 
     return NextResponse.json({ quizzId }, { status: 200 });
 
