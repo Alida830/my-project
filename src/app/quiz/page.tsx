@@ -3,30 +3,50 @@ import {useState} from "react";
 import {Button} from "@/components/ui/button";
 import ProgressBar from "@/components/progressBar";
 import {ChevronLeft, X } from "lucide-react";
-import ResultCard from "./ResultCard";
 import QuizzSubmission from "./QuizzSubmission";
-import { InferSelectModel } from "drizzle-orm";
-import { questionAnswers, questions as DbQuestions, quizzes} from "@/db/schema";
-import { saveSubmission } from "@/actions/saveSubmissions";
-import { useRouter } from "next/navigation";
+import ResultCard from "./ResultCard";
 
-type Answer = InferSelectModel<typeof questionAnswers>;
-type Question = InferSelectModel<typeof DbQuestions> & { answers: Answer[]};
-type Quizz = InferSelectModel<typeof quizzes> & { questions: Question[]};
 
-type Props = {
-    quizz: Quizz
-}
+const questions = [
+    {
+    questionText:"What is React?",
+    answers: [
+        {answerText:"A library for building user interfaces", isCorrect: true, id: 1},
+         { answerText:"A front-end framework", isCorrect:
+            false, id: 2 },
+            { answerText:"A back-end framework", isCorrect:
+                false, id: 3},
+                {answerText:"A database", isCorrect: false, id: 4 }
+            ]
+            },
+            {
+                questionText: "What is JSX?",
+                answers: [
+                    { answerText: "JavaScript XML", isCorrect: true, id: 1},
+                    { answerText: "JavaScript", isCorrect: false, id: 2},
+                    { answerText: "JvaScript and XML", isCorrect: false, id:3},
+                        { answerText:"JavaScript and HTML", isCorrect: false, id: 4 }
+                ]
+            },
+            {
+                questionText: "What is the virtual DOM",
+                answers: [
+                    { answerText: "A virtual representation of the DOM", isCorrect: true, id: 1 },
+                        {answerText:"A real DOM", isCorrect: false, id: 2 },
+                        { answerText:"A virtual representation of the browser", isCorrect: false, id: 3 },
+                        { answerText: "A virtual representation of the server", isCorrect: false, id: 4}
+                ]
+            }
+        ]; 
 
-  export default function QuizzQuestions(props: Props) {
-    const { questions } = props.quizz;
+
+    export default function Home() {
     const [started, setStarted] = useState<boolean>(false);
     const [currentQuestion, setCurrentQuestion] = useState<number>(0);
     const [score, setScore] = useState<number>(0);
-    const [userAnswers, setUserAnswers] = useState<{
-        questionId: number, answerId: number}[]>([]);
+    const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+    const [isCorrect,setIsCorrect] = useState<boolean| null>(null);
     const [submitted, setsubmitted] =useState<boolean>(false);
-    const router = useRouter();
 
 
     const handleNext = () => {
@@ -41,48 +61,21 @@ type Props = {
         setsubmitted(true);
         return;
     }
+
+    setSelectedAnswer(null);
+    setIsCorrect(null);
     }
 
-     const handleAnswer = (answer:Answer,questionId: number) => {
-     const newUserAnswersArr =[...userAnswers, {
-        questionId,
-        answerId: answer.id,
-        
-       }];
-       setUserAnswers(newUserAnswersArr);
+     const handleAnswer = (answer:any) => {
+       setSelectedAnswer(answer.id);
        const isCurrentCorrect = answer.isCorrect;
        if (isCurrentCorrect) {
         setScore(score + 1);
        }
+       setIsCorrect(isCurrentCorrect);
      }
-     const handleSubmit = async () => {
-        try{
-            const subId = await saveSubmission({ score }, props.quizz.id);
-        } catch (e) {
-            console.log(e);
-        }
-
-        setsubmitted(true);     
-    }
-
-    const handlePressPrev =() => {
-        if (currentQuestion !== 0) {
-            setCurrentQuestion(prevCurrentQuestion =>
-                prevCurrentQuestion -1);
-            
-        }
-    }
-
-    const handleExit = () => {
-        router.push('/dashboard');
-    }
 
      const scorePercentage: number= Math.round((score / questions.length) * 100);
-     const selectedAnswer: number | null | undefined = userAnswers.find((item) =>
-       item.questionId === questions[currentQuestion].id)?.answerId;
-     const isCorrect: boolean| null | undefined = questions[currentQuestion].answers.findIndex
-     ((answer) => answer.id === selectedAnswer) ? questions[currentQuestion].answers.find
-     ((answer) => answer.id === selectedAnswer)?.isCorrect : null;
 
      if(submitted) {
         return(
@@ -95,14 +88,13 @@ type Props = {
      }
     return(
         <div className="flex flex-col flex-1">
-            <div className="position-sticky top-0 z-10 shadow-md py-4 w-full">
+            <div className="sticky top-0 z-10 shadow-md py-4 w-full">
 
                 <header className="grid grid-cols-[auto,1fr,auto]
                 grid-flow-col items-center justify-between py-2 gap-2"> 
-                    <Button size="icon" variant="outline" onClick=
-                    {handlePressPrev}><ChevronLeft /></Button>
+                    <Button size="icon" variant="outline"><ChevronLeft /></Button>
                     <ProgressBar  value={(currentQuestion/ questions.length) * 100} />
-                    <Button size="icon" variant="outline" onClick={handleExit}>
+                    <Button size="icon" variant="outline">
                         <X />
                     </Button>
 
@@ -122,13 +114,12 @@ type Props = {
                                     "neoSuccess" :"neoDanger") : "neoOutline";
                                 
                                 return(
-                               <Button key={answer.id} disabled=
-                               {!!selectedAnswer }
+                               <Button key={answer.id}
                                variant={variant}
                                 size="xl"
-                               onClick={() => handleAnswer(answer, questions[currentQuestion].id)}
-                               className="disabled:opacity-100"><p
-                                className="whitespace-normal"> {answer.answerText}</p></Button>
+                               onClick={() => handleAnswer(answer)}
+                                className="whitespace-normal">
+                                    <p>{answer.answerText}</p></Button>
                                 )
 
                             })
@@ -138,8 +129,10 @@ type Props = {
                )}
             </main>
              <footer className="footer pb-9 px-6 relative mb-0">
-                <ResultCard isCorrect={isCorrect} correctAnswer={questions
-                [currentQuestion].answers.find(answer => answer.isCorrect === true)?.answerText || ""} 
+                <ResultCard isCorrect={isCorrect}
+                 correctAnswer={
+                  questions[currentQuestion].answers.find(answer => answer.isCorrect )?.answerText || ""
+                } 
                  />
                 <Button variant="neo" size="lg" onClick={handleNext}>{!started ? 'Start' : (currentQuestion === questions.length - 1)
                 ? 'Submit' :
@@ -149,4 +142,3 @@ type Props = {
         </div>
     )
 }
-    

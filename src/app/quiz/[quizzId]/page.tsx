@@ -4,12 +4,8 @@ import { quizzes } from "@/db/schema";
 import { eq} from 'drizzle-orm';
 import QuizzQuestions from "../QuizzQuestions";
 
-const page = async ({ params}: {
-    params: {
-        quizzId: string
-    }
-}) => {
-    const quizzId = params.quizzId;
+export default async function Page({ params }: { params: { quizzId: string } }) {
+    const { quizzId } = await params;
     const quizz = await db.query.quizzes.findFirst({
         where: eq(quizzes.id, parseInt(quizzId)),
         with: {
@@ -30,5 +26,3 @@ return (
     <QuizzQuestions quizz={quizz} />
 )
 }
-
-export default page;

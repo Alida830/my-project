@@ -1,99 +1,89 @@
-import {NextRequest,NextResponse} from "next/server";
-
-
-import { ChatOpenAI } from "@langchain/openai";
-import{ HumanMessage } from "@langchain/core/messages";
-
-import { PDFLoader } from "Langchain/document_loaders/fs/pdf";
-import{ JsonOutputFunctionsParser } from "langchain/output_parsers";
-
+import { NextRequest, NextResponse } from "next/server";
 import saveQuizz from "./saveToDb";
+import { auth } from "@clerk/nextjs/server";
 
 export async function POST(req: NextRequest) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.formData();
-    const document = body.get("pdf");
+    const document = body.get("pdf") as File;
 
-    try{
-        const pdfLoader = new PDFLoader(document as Blob,{
-            parsedItemSeparator:""
-        });
-        const docs = await pdfLoader.load();
+    if (!document) {
+      return NextResponse.json(
+        { error: "No PDF file uploaded" },
+        { status: 400 }
+      );
+    }
 
-        const selectedDocuments = docs.filter((doc) => doc.pageContent !== undefined);
-        const texts = selectedDocuments.map((doc) => doc.pageContent);
+    // 🕒 SIMULATE GENERATION DELAY (2 seconds)
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        const prompt = "given the text which is a summary of the document,generate a quiz based on the text.Return json only that contains a quizz object with fields:name,description and questions.The questions is an array of objects with fields: questionText,answers.The answers is an array of objects with fields: answerText, isCorrect,"
-         
-        if (!process.env.OPENAI_API_KEY) {
-            return  NextResponse.json({ error: "OpenAI API  key not provided" },
-                 { status: 500}
-                );
-        }
-        const model = new ChatOpenAI({
-            openAIApiKey: process.env.OPENAI_API_KEY,
-            modelName: "gpt-4-1106-preview"
-        });
-        const parser = new JsonOutputFunctionsParser();
-        const extractionFunctionSchema = {
-            name:"extractor",
-            description: "Extracts fields from the output",
-            parameters: {
-                type: "object",
-                properties: {
-                    quizz: {
-                        type: "object",
-                        properties: {
-                            name: { type: "string" },
-                            description: { type: "string"},
-                            questions: {
-                                type: "array",
-                                items: {
-                                    type: "array",
-                                    items: {
-                                        type: "object",
-                                        properties: {
+    // ✅ MOCK QUIZ (NO AI)
+    const mockQuiz = {
+      name: document.name.replace(".pdf", "") + " Quiz",
+      description: `A comprehensive quiz generated from ${document.name}`,
+      userId,
+      questions: [
+        {
+          questionText: "Which of the following describes the main objective of this document?",
+          answers: [
+            { answerText: "To provide a theoretical overview", isCorrect: true },
+            { answerText: "To list technical specifications", isCorrect: false },
+            { answerText: "To outline a marketing strategy", isCorrect: false },
+          ],
+        },
+        {
+          questionText: "What is the primary benefit mentioned in the introductory section?",
+          answers: [
+            { answerText: "Increased efficiency and speed", isCorrect: true },
+            { answerText: "Reduced cost of production", isCorrect: false },
+            { answerText: "Improved user satisfaction", isCorrect: false },
+          ],
+        },
+        {
+          questionText: "According to the document, what is the recommended first step?",
+          answers: [
+            { answerText: "Initialize the environment", isCorrect: true },
+            { answerText: "Contact customer support", isCorrect: false },
+            { answerText: "Review the safety protocols", isCorrect: false },
+          ],
+        },
+        {
+          questionText: "Which component is identified as the core of the system?",
+          answers: [
+            { answerText: "The Logic Engine", isCorrect: true },
+            { answerText: "The Storage Unit", isCorrect: false },
+            { answerText: "The User Interface", isCorrect: false },
+          ],
+        },
+        {
+          questionText: "What is the expected outcome of following the provided guidelines?",
+          answers: [
+            { answerText: "A fully functional prototype", isCorrect: true },
+            { answerText: "A detailed project report", isCorrect: false },
+            { answerText: "A certificate of completion", isCorrect: false },
+          ],
+        },
+      ],
+    };
 
-                                        }
-                                    }
+    const { quizzId } = await saveQuizz(mockQuiz);
 
+    return NextResponse.json({ quizzId }, { status: 200 });
 
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
+  } catch (e: any) {
+    console.error("QUIZ GENERATION ERROR:", e);
 
-        const runnable = model
-        .bind({
-            functions: [extractionFunctionSchema],
-            function_call: {name: "extractor"},
-        })
-        .pipe(parser);
-
-
-        const message = new HumanMessage({
-            content: [
-                {
-                    type: "text",
-                    text: prompt + "\n" + texts.join("\n")
-                },
-            ],
-        });
-
-        const result = await runnable.invoke([message]);
-        console.log(result);
-
-        const { quizzId } =await saveQuizz(result.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      );
-
-        return NextResponse.json({ quizzId },
-         { status: 200}
-        );
-    } catch(e:any) {
+    return NextResponse.json(
+      { error: e.message },
+      { status: 500 }
+    );
+  }
+}
         
-        return NextResponse.json({ error: e.message}, { status: 500});
-    }
-    }
         
     

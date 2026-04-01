@@ -1,11 +1,7 @@
+import { ClerkProvider } from '@clerk/nextjs'
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
-import { SessionProvider } from "next-auth/react";
 import Header from "@/components/ui/header";
-
-
-const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'Quizz Ai',
@@ -19,12 +15,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <SessionProvider>
-      <body className={"dark"}>
-        <Header />
-        {children}
-        </body>
-      </SessionProvider>
+      <body className="dark">
+        <ClerkProvider>
+          <Header />
+          {children}
+        </ClerkProvider>
+      </body>
     </html>
   )
 }

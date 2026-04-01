@@ -8,16 +8,18 @@ type Answer = InferInsertModel<typeof questionAnswers>;
 
 interface saveQuizzData extends Quizz {
     questions: Array<Question & { answers?: Answer[]}>;
+    userId: string;
 }
 
 export default async function saveQuizz(quizzData:saveQuizzData) {
-    const { name, description, questions } = quizzData;
+    const { name, description, questions, userId } = quizzData;
 
     const newQuizz = await db
     .insert(quizzes)
     .values({
         name,
-        description
+        description,
+        userId
     })
     .returning({ insertedId: quizzes.id});
     const quizzId =newQuizz[0].insertedId;
