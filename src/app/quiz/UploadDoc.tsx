@@ -9,14 +9,22 @@ import { cn } from "@/lib/utils";
 
 const UploadDoc = () => {
     const [document, setDocument] = useState<File | null>(null);
+    const [activeTab, setActiveTab] = useState<"document"|"text">("document");
+    const [textInput, setTextInput] = useState<string>("");
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string>("");
     const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        if (!document) {
+        
+        if (activeTab === "document" && !document) {
             setError("Please upload a document first.");
+            return;
+        }
+
+        if (activeTab === "text" && !textInput.trim()) {
+            setError("Please paste some text first.");
             return;
         }
 
@@ -24,7 +32,11 @@ const UploadDoc = () => {
         setError("");
         
         const formData = new FormData();
-        formData.append("pdf", document);
+        if (activeTab === "document") {
+            formData.append("pdf", document as File);
+        } else {
+            formData.append("text", textInput);
+        }
 
         try {
             const res = await fetch("/api/quizz/generate", {
@@ -95,50 +107,81 @@ const UploadDoc = () => {
                                 onSubmit={handleSubmit} 
                                 className="space-y-6"
                             >
-                                <label 
-                                    htmlFor="document" 
-                                    className={cn(
-                                        "group relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl transition-all duration-300 cursor-pointer",
-                                        document 
-                                            ? "border-green-500 bg-green-50/50 dark:bg-green-900/10" 
-                                            : "border-slate-300 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10"
-                                    )}
-                                >
-                                    <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
-                                        {document ? (
-                                            <div className="space-y-4">
-                                                <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-full inline-block">
-                                                    <CheckCircle2 className="w-10 h-10 text-green-600" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-lg font-semibold text-slate-900 dark:text-white truncate max-w-xs">{document.name}</p>
-                                                    <p className="text-sm text-slate-500">{(document.size / 1024 / 1024).toFixed(2)} MB</p>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div className="p-4 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4 group-hover:scale-110 transition-transform duration-300">
-                                                    <Upload className="w-10 h-10 text-blue-600" />
-                                                </div>
-                                                <p className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Click or drag to upload</p>
-                                                <p className="text-sm text-slate-500 dark:text-slate-400">PDF, DOCX, or TXT (Max 10MB)</p>
-                                            </>
+                                <div className="flex bg-slate-100 dark:bg-slate-800/50 p-1 rounded-xl w-full max-w-sm mx-auto mb-6">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setActiveTab("document")}
+                                        className={cn("flex-1 py-2 text-sm font-medium rounded-lg transition-all", activeTab === "document" ? "bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300")}
+                                    >
+                                        Upload PDF
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setActiveTab("text")}
+                                        className={cn("flex-1 py-2 text-sm font-medium rounded-lg transition-all", activeTab === "text" ? "bg-white dark:bg-slate-700 shadow text-blue-600 dark:text-blue-400" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300")}
+                                    >
+                                        Paste Text
+                                    </button>
+                                </div>
+
+                                {activeTab === "document" ? (
+                                    <label 
+                                        htmlFor="document" 
+                                        className={cn(
+                                            "group relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl transition-all duration-300 cursor-pointer",
+                                            document 
+                                                ? "border-green-500 bg-green-50/50 dark:bg-green-900/10" 
+                                                : "border-slate-300 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10"
                                         )}
-                                    </div>
-                                    <input 
-                                        type="file" 
-                                        id="document"
-                                        accept=".pdf,.docx,.txt"
-                                        className="hidden" 
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0];
-                                            if (file) {
-                                                setDocument(file);
+                                    >
+                                        <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center px-4">
+                                            {document ? (
+                                                <div className="space-y-4">
+                                                    <div className="p-4 bg-green-100 dark:bg-green-900/30 rounded-full inline-block">
+                                                        <CheckCircle2 className="w-10 h-10 text-green-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-lg font-semibold text-slate-900 dark:text-white truncate max-w-xs">{document.name}</p>
+                                                        <p className="text-sm text-slate-500">{(document.size / 1024 / 1024).toFixed(2)} MB</p>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div className="p-4 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4 group-hover:scale-110 transition-transform duration-300">
+                                                        <Upload className="w-10 h-10 text-blue-600" />
+                                                    </div>
+                                                    <p className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Click or drag to upload</p>
+                                                    <p className="text-sm text-slate-500 dark:text-slate-400">PDF, DOCX, or TXT (Max 10MB)</p>
+                                                </>
+                                            )}
+                                        </div>
+                                        <input 
+                                            type="file" 
+                                            id="document"
+                                            accept=".pdf,.docx,.txt"
+                                            className="hidden" 
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setDocument(file);
+                                                    setError("");
+                                                }
+                                            }}
+                                        />
+                                    </label>
+                                ) : (
+                                    <div className="w-full h-64 flex flex-col">
+                                        <textarea
+                                            value={textInput}
+                                            onChange={(e) => {
+                                                setTextInput(e.target.value);
                                                 setError("");
-                                            }
-                                        }}
-                                    />
-                                </label>
+                                            }}
+                                            placeholder="Paste your notes, articles, or any educational text here..."
+                                            className="flex-1 w-full p-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                        />
+                                    </div>
+                                )}
 
                                 {error && (
                                     <motion.div 
@@ -153,9 +196,9 @@ const UploadDoc = () => {
 
                                 <Button 
                                     size="lg" 
-                                    className="w-full h-14 text-lg font-bold transition-all duration-300 transform active:scale-95"
+                                    className="w-full h-14 text-lg font-bold transition-all duration-300 transform active:scale-95 bg-blue-600 hover:bg-blue-500 text-white"
                                     type="submit"
-                                    disabled={!document || isLoading}
+                                    disabled={(activeTab === 'document' && !document) || (activeTab === 'text' && !textInput.trim()) || isLoading}
                                 >
                                     <FileText className="mr-2 h-5 w-5" />
                                     Generate Quiz

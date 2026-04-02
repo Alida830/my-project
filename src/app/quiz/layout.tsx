@@ -5,9 +5,9 @@ export default function Layout({children}:{
 }) {
     return (
         <><Header/>
-        <div className="flex flex-col flex-1 max-w-96 w-full m-auto h-screen gap-6">
+        <div className="flex flex-col flex-1 max-w-7xl w-full mx-auto min-h-screen gap-6 px-4">
             {children}
-            </div>
+        </div>
     </>
     )
 }

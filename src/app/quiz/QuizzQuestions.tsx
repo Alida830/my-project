@@ -115,7 +115,7 @@ export default function QuizzQuestions(props: Props) {
   }
 
   return (
-    <div className="flex flex-col flex-1">
+    <div className="flex flex-col flex-1 w-full max-w-3xl mx-auto">
       <div className="sticky top-0 z-10 shadow-md py-4 w-full">
         <header className="grid grid-cols-[auto,1fr,auto] items-center py-2 gap-2">
           <Button size="icon" variant="outline" onClick={handlePressPrev}>
@@ -132,13 +132,13 @@ export default function QuizzQuestions(props: Props) {
         </header>
       </div>
 
-      <main className="flex justify-center flex-1">
+      <main className="flex justify-center pt-8 pb-6 w-full">
         {!started ? (
           <h1 className="text-3xl font-bold">
-            Welcome to the quizz page 👋
+            Welcome to the quizz page
           </h1>
         ) : (
-          <div>
+          <div className="w-full">
             <h2 className="text-3xl font-bold">
               {questions[currentQuestion].questionText}
             </h2>

@@ -22,6 +22,11 @@ export default async function Page({ params }: { params: { quizzId: string } }) 
         return <div>Quizz not found</div>
     };
 
+    // Shuffle the answers array for each question to ensure random order
+    quizz.questions.forEach((q) => {
+        q.answers.sort(() => Math.random() - 0.5);
+    });
+
 return (
     <QuizzQuestions quizz={quizz} />
 )

@@ -1,4 +1,3 @@
-import { ClerkProvider } from '@clerk/nextjs'
 import type { Metadata } from 'next'
 import './globals.css'
 import Header from "@/components/ui/header";
@@ -16,10 +15,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="dark">
-        <ClerkProvider>
-          <Header />
-          {children}
-        </ClerkProvider>
+        <Header />
+        {children}
       </body>
     </html>
   )

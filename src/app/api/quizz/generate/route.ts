@@ -1,34 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import saveQuizz from "./saveToDb";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
+// @ts-ignore: Next.js Webpack bug workaround targeting internal file
+import pdfParse from "pdf-parse/lib/pdf-parse.js";
+import mammoth from "mammoth";
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const session = await auth();
+    const userId = session?.user?.id;
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.formData();
-    const document = body.get("pdf") as File;
+    const document = body.get("pdf") as File | null;
+    const rawText = body.get("text") as string | null;
 
-    if (!document) {
+    if (!document && !rawText) {
       return NextResponse.json(
-        { error: "No PDF file uploaded" },
+        { error: "No PDF file or text provided." },
         { status: 400 }
       );
     }
 
-    // Convert PDF file to buffer and extract text
-    const buffer = Buffer.from(await document.arrayBuffer());
     let extractedText = "";
-    try {
-      const pdfParse = (await import("pdf-parse")).default;
-      const pdfData = await pdfParse(buffer);
-      extractedText = pdfData.text;
-    } catch (e: any) {
-      console.error("Error parsing PDF:", e);
-      return NextResponse.json({ error: "Failed to parse PDF" }, { status: 400 });
+
+    if (rawText && rawText.trim().length > 0) {
+      extractedText = rawText;
+    } else if (document) {
+      const buffer = Buffer.from(await document.arrayBuffer());
+      const fileName = document.name.toLowerCase();
+
+      try {
+        if (fileName.endsWith('.pdf')) {
+          const pdfData = await pdfParse(buffer);
+          extractedText = pdfData.text;
+        } else if (fileName.endsWith('.docx')) {
+          const docxData = await mammoth.extractRawText({ buffer });
+          extractedText = docxData.value;
+        } else if (fileName.endsWith('.txt')) {
+          extractedText = buffer.toString('utf-8');
+        } else {
+          return NextResponse.json({ error: "Unsupported file type. Please upload a PDF, DOCX, or TXT file." }, { status: 400 });
+        }
+      } catch (e: any) {
+        console.error("Error parsing document:", e);
+        return NextResponse.json({ error: "Failed to parse document: " + (e?.message || String(e)) }, { status: 400 });
+      }
+    }
+
+    if (!extractedText.trim()) {
+       return NextResponse.json({ error: "No extractable text found." }, { status: 400 });
     }
 
     const promptText = `
@@ -58,7 +81,7 @@ ${extractedText.substring(0, 10000)}
       "https://router.huggingface.co/v1/chat/completions",
       {
         headers: {
-          Authorization: \`Bearer \${process.env.HF_TOKEN}\`,
+          Authorization: `Bearer ${process.env.HF_TOKEN}`,
           "Content-Type": "application/json",
         },
         method: "POST",
@@ -78,7 +101,7 @@ ${extractedText.substring(0, 10000)}
     
     if (!response.ok) {
        console.error("HF API Error:", result);
-       throw new Error(\`HF API Error: \${JSON.stringify(result)}\`);
+       throw new Error(`HF API Error: ${JSON.stringify(result)}`);
     }
 
     let parsedQuiz;
@@ -86,10 +109,10 @@ ${extractedText.substring(0, 10000)}
         let content = result.choices?.[0]?.message?.content?.trim() || "";
         
         // Remove markdown wrappers if any
-        if (content.startsWith("\`\`\`json")) {
-           content = content.replace(/^\`\`\`json/, "").replace(/\`\`\`$/, "").trim();
-        } else if (content.startsWith("\`\`\`")) {
-           content = content.replace(/^\`\`\`/, "").replace(/\`\`\`$/, "").trim();
+        if (content.startsWith("```json")) {
+           content = content.replace(/^```json/, "").replace(/```$/, "").trim();
+        } else if (content.startsWith("```")) {
+           content = content.replace(/^```/, "").replace(/```$/, "").trim();
         }
         
         parsedQuiz = JSON.parse(content);
