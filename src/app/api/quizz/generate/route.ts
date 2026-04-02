@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import saveQuizz from "./saveToDb";
 import { auth } from "@clerk/nextjs/server";
+import { createRequire } from "module";
+
+export const runtime = "nodejs";
+
+const require = createRequire(import.meta.url);
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,16 +24,49 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Convert PDF file to buffer and extract text
-    const buffer = Buffer.from(await document.arrayBuffer());
+    const fileName = document.name?.toLowerCase() || "";
+    const isPdf =
+      document.type === "application/pdf" || fileName.endsWith(".pdf");
+    const isTxt =
+      document.type.startsWith("text/") || fileName.endsWith(".txt");
+
     let extractedText = "";
-    try {
-      const pdfParse = (await import("pdf-parse")).default;
-      const pdfData = await pdfParse(buffer);
-      extractedText = pdfData.text;
-    } catch (e: any) {
-      console.error("Error parsing PDF:", e);
-      return NextResponse.json({ error: "Failed to parse PDF" }, { status: 400 });
+
+    if (isTxt) {
+      extractedText = await document.text();
+    } else if (isPdf) {
+      const buffer = Buffer.from(await document.arrayBuffer());
+      try {
+        const pdfParse = require("pdf-parse/lib/pdf-parse.js") as (
+          dataBuffer: Buffer
+        ) => Promise<{ text: string }>;
+        const pdfData = await pdfParse(buffer);
+        extractedText = pdfData.text;
+      } catch (e: any) {
+        console.error("Error parsing PDF:", e);
+        return NextResponse.json(
+          {
+            error:
+              "Failed to parse PDF. Try a text-based PDF instead of a scanned image PDF.",
+          },
+          { status: 400 }
+        );
+      }
+    } else {
+      return NextResponse.json(
+        { error: "Only PDF and TXT files are supported right now." },
+        { status: 400 }
+      );
+    }
+
+    if (!extractedText.trim()) {
+      return NextResponse.json(
+        {
+          error:
+            "No readable text was found in this file. Try a text-based PDF or TXT file.",
+        },
+        { status: 400 }
+      );
     }
 
     const promptText = `
@@ -58,7 +96,7 @@ ${extractedText.substring(0, 10000)}
       "https://router.huggingface.co/v1/chat/completions",
       {
         headers: {
-          Authorization: \`Bearer \${process.env.HF_TOKEN}\`,
+          Authorization: `Bearer ${process.env.HF_TOKEN}`,
           "Content-Type": "application/json",
         },
         method: "POST",
@@ -78,7 +116,7 @@ ${extractedText.substring(0, 10000)}
     
     if (!response.ok) {
        console.error("HF API Error:", result);
-       throw new Error(\`HF API Error: \${JSON.stringify(result)}\`);
+       throw new Error(`HF API Error: ${JSON.stringify(result)}`);
     }
 
     let parsedQuiz;

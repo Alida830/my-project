@@ -121,14 +121,14 @@ const UploadDoc = () => {
                                                     <Upload className="w-10 h-10 text-blue-600" />
                                                 </div>
                                                 <p className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Click or drag to upload</p>
-                                                <p className="text-sm text-slate-500 dark:text-slate-400">PDF, DOCX, or TXT (Max 10MB)</p>
+                                                <p className="text-sm text-slate-500 dark:text-slate-400">PDF or TXT (Max 10MB)</p>
                                             </>
                                         )}
                                     </div>
                                     <input 
                                         type="file" 
                                         id="document"
-                                        accept=".pdf,.docx,.txt"
+                                        accept=".pdf,.txt"
                                         className="hidden" 
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
