@@ -1,11 +1,11 @@
 import { quizzes, questions, quizzSubmissions, users } from "@/db/schema";
 import { db } from "@/db";
 import { count, eq,avg } from "drizzle-orm";
-import { currentUser } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 
 const getUserMetrics = async () => {
-  const user = await currentUser();
-  const userId  = user?.id;
+  const session = await auth();
+  const userId = session?.user?.id;
 
   if (!userId) {
     return {

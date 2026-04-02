@@ -15,7 +15,7 @@ const Demo = ({ data }: DemoProps) => {
             value={data}
             width={600}
             style={{ backgroundColor: "#000", color: "#888", padding: '10px', borderRadius: '8px' }}
-            startDate={new Date('2024/01/01')}
+            startDate={new Date(new Date().getFullYear(), 0, 1)}
             panelColors={panelColors}
             rectRender={(props: React.SVGProps<SVGRectElement>, data: any) => {
                 return (
